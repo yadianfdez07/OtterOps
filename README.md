@@ -35,18 +35,22 @@ Before deploying this solution, ensure you have:
   - `Contributor` role at the resource group level (minimum)
   - Or `Owner` role for full management capabilities
 
+> For detailed repository structure information, see [STRUCTURE.md](STRUCTURE.md)
+
 ## File Structure
 
 ```
 .
-├── main.bicep                  # Main Bicep template
-├── main.bicepparam             # Default parameters (safe for git)
-├── main.bicepparam.example     # Example for local customization
-├── deploy.ps1                  # PowerShell deployment script
-├── SECURITY.md                 # Security guidelines
-├── CONTRIBUTING.md             # Contribution guidelines
-├── .gitignore                  # Git ignore patterns
-└── README.md                   # This file
+├── src/
+│   └── infrastructure/
+│       ├── main.bicep                  # Main Bicep template
+│       ├── main.bicepparam             # Default parameters (safe for git)
+│       ├── main.bicepparam.example     # Example for local customization
+│       └── deploy.ps1                  # PowerShell deployment script
+├── SECURITY.md                         # Security guidelines
+├── CONTRIBUTING.md                     # Contribution guidelines
+├── .gitignore                          # Git ignore patterns
+└── README.md                           # This file
 ```
 
 ### Local Development
@@ -54,6 +58,9 @@ Before deploying this solution, ensure you have:
 For production deployments, create a local parameters file:
 
 ```powershell
+# Navigate to infrastructure directory
+cd src/infrastructure
+
 # Copy the example file
 cp main.bicepparam.example main.bicepparam.local
 
@@ -99,6 +106,9 @@ You can modify, add, or remove image definitions in the `windowsImages` paramete
 The provided PowerShell script automatically detects whether you have Azure CLI or Azure PowerShell installed and uses the appropriate tool.
 
 ```powershell
+# Navigate to infrastructure directory
+cd src/infrastructure
+
 # Basic deployment
 ./deploy.ps1 -ResourceGroupName "rg-sharedimages-test"
 
@@ -109,12 +119,15 @@ The provided PowerShell script automatically detects whether you have Azure CLI 
 ./deploy.ps1 -ResourceGroupName "rg-sharedimages-prod" -WhatIf
 
 # Deployment with custom parameters file
-./deploy.ps1 -ResourceGroupName "rg-sharedimages-prod" -ParametersFile "./custom.bicepparam"
+./deploy.ps1 -ResourceGroupName "rg-sharedimages-prod" -ParametersFile "./main.bicepparam.local"
 ```
 
 ### Option 2: Using Azure CLI
 
 ```bash
+# Navigate to infrastructure directory
+cd src/infrastructure
+
 # Create resource group (if it doesn't exist)
 az group create --name rg-sharedimages-prod --location eastus
 
@@ -135,6 +148,9 @@ az deployment group what-if \
 ### Option 3: Using Azure PowerShell
 
 ```powershell
+# Navigate to infrastructure directory
+cd src/infrastructure
+
 # Create resource group (if it doesn't exist)
 New-AzResourceGroup -Name "rg-sharedimages-prod" -Location "eastus"
 

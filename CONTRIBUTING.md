@@ -44,10 +44,12 @@ Thank you for your interest in contributing to this project!
 
 Before submitting a PR:
 
-1. Test deployment in a sandbox Azure subscription
-2. Verify Bicep compilation: `az bicep build --file main.bicep`
-3. Run what-if analysis: `./deploy.ps1 -ResourceGroupName "test-rg" -WhatIf`
-4. Clean up test resources after validation
+1. Navigate to the infrastructure directory: `cd src/infrastructure`
+2. Test deployment in a sandbox Azure subscription
+3. Verify Bicep compilation: `az bicep build --file main.bicep`
+4. Run what-if analysis: `./deploy.ps1 -ResourceGroupName "test-rg" -WhatIf`
+5. Clean up test resources after validation
+6. Never commit local parameter files (`*.bicepparam.local`)
 
 ## Questions?
 
