@@ -10,6 +10,18 @@
 *.userosscache
 *.sln.docstates
 *.env
+*.env.*
+
+# Azure-specific files
+*.bicepparam.local
+*.parameters.local.json
+.azure/
+.vscode/settings.json
+
+# Sensitive configuration files
+secrets.json
+appsettings.local.json
+local.settings.json
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs

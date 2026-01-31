@@ -1,0 +1,37 @@
+# Example local parameters file
+# Copy this to main.bicepparam.local and customize for your environment
+# The .local file is ignored by git to prevent committing sensitive values
+
+using './main.bicep'
+
+// REQUIRED: Change this to your gallery name
+param galleryName = 'your_company_gallery_name'
+
+// OPTIONAL: Customize as needed
+param location = 'eastus'
+
+param galleryDescription = 'Your custom description'
+
+param windowsImages = [
+  {
+    name: 'windows-11-enterprise'
+    description: 'Custom Windows 11 Enterprise with your applications'
+    publisher: 'YourCompany'
+    offer: 'Windows11'
+    sku: '11-enterprise-custom'
+    osType: 'Windows'
+    osState: 'Generalized'
+    hyperVGeneration: 'V2'
+  }
+]
+
+param tags = {
+  Environment: 'Production'
+  Purpose: 'CustomImageStorage'
+  ManagedBy: 'Bicep'
+  CostCenter: 'YOUR-COST-CENTER'
+  Owner: 'YOUR-TEAM-NAME'
+}
+
+param enableSoftDelete = true  // Recommended for production
+param softDeleteRetentionDays = 30
