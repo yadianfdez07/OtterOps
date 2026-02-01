@@ -42,13 +42,24 @@ Before deploying this solution, ensure you have:
 ```
 .
 ├── src/
-│   └── infrastructure/
-│       ├── main.bicep                  # Main Bicep template
-│       ├── main.bicepparam             # Default parameters (safe for git)
-│       ├── main.bicepparam.example     # Example for local customization
-│       └── deploy.ps1                  # PowerShell deployment script
+│   ├── infrastructure/
+│   │   ├── main.bicep                  # Main Bicep template
+│   │   ├── main.bicepparam             # Default parameters (safe for git)
+│   │   ├── main.bicepparam.example     # Example for local customization
+│   │   └── deploy.ps1                  # PowerShell deployment script
+│   └── cicd/
+│       ├── azure-pipelines.yml         # Azure DevOps pipeline
+│       └── packer/
+│           ├── main.pkr.hcl            # Packer template
+│           ├── variables.pkr.hcl       # Packer variables
+│           ├── terraform.tfvars.example # Example variable values
+│           ├── README.md               # Packer documentation
+│           └── scripts/
+│               └── install-notepadpp.ps1 # Notepad++ installation script
 ├── SECURITY.md                         # Security guidelines
 ├── CONTRIBUTING.md                     # Contribution guidelines
+├── STRUCTURE.md                        # Repository structure guide
+├── CHANGES.md                          # Change log
 ├── .gitignore                          # Git ignore patterns
 └── README.md                           # This file
 ```
@@ -222,6 +233,77 @@ az sig image-version update \
   --gallery-image-version 1.0.0 \
   --target-regions "eastus=1=standard" "westus2=1=standard" "centralus=1=standard"
 ```
+
+## CI/CD Pipeline - Automated Image Building
+
+This repository includes an Azure DevOps pipeline (`src/cicd/azure-pipelines.yml`) that automates the process of building custom Windows images using Packer.
+
+### Pipeline Overview
+
+The pipeline performs the following stages:
+
+1. **Validate** - Validates Packer templates and Bicep infrastructure
+2. **Build** - Builds Windows 11 Enterprise image with Notepad++ installed
+3. **Verify** - Verifies image creation in Azure Compute Gallery
+4. **Report** - Generates build summary and artifacts
+
+### Pipeline Features
+
+✅ **Automated Image Customization**
+- Installs Notepad++ on Windows 11 Enterprise
+- Fully extensible for additional software
+
+✅ **Generalization & Capture**
+- Automatically runs Windows Sysprep
+- Captures image directly to Azure Compute Gallery
+- Supports versioning and replication
+
+✅ **Build Validation**
+- Format checking for Packer templates
+- Validation of infrastructure code
+- Azure authentication verification
+
+### Using the Pipeline
+
+**Prerequisites:**
+- Azure DevOps project with repository
+- Azure service connection configured
+- Service principal with gallery access
+
+**Setup:**
+1. See [src/cicd/README.md](src/cicd/README.md) for configuration
+2. Add pipeline to Azure DevOps
+3. Configure service connection and variables
+4. Run pipeline manually or on code push
+
+**Customization:**
+- Edit `src/cicd/packer/scripts/install-notepadpp.ps1` to add software
+- Modify `src/cicd/packer/main.pkr.hcl` for build configuration
+- Update `azure-pipelines.yml` for different stages or triggers
+
+### Image Build Process
+
+```
+Pipeline Trigger
+    ↓
+Validate Packer/Bicep Templates
+    ↓
+Create Temporary Resource Group & VM
+    ↓
+Run Provisioners (Install Software)
+    ↓
+Run Windows Sysprep (Generalize)
+    ↓
+Capture Image to Gallery
+    ↓
+Cleanup Temporary Resources
+    ↓
+Verify Image in Gallery
+    ↓
+Generate Report
+```
+
+For detailed instructions, see [src/cicd/README.md](src/cicd/README.md) and [src/cicd/packer/README.md](src/cicd/packer/README.md).
 
 ## Security Best Practices
 

@@ -23,6 +23,22 @@ secrets.json
 appsettings.local.json
 local.settings.json
 
+# Packer files
+*.tfvars
+!*.tfvars.example
+terraform.tfstate
+terraform.tfstate.*
+crash.log
+crash.*.log
+*.tar.gz
+manifest.json
+packer-manifest
+packer_manifest.json
+
+# Packer cache
+packer_cache/
+.packer/
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 

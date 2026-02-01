@@ -1,0 +1,35 @@
+# Example Terraform Variables File for Packer
+# Copy this file to terraform.tfvars and fill in your values
+
+# Azure Authentication
+azure_subscription_id = "00000000-0000-0000-0000-000000000000"  # Your subscription ID
+azure_client_id       = "00000000-0000-0000-0000-000000000000"  # Service principal client ID
+azure_client_secret   = "your-secret-here"                     # Service principal secret
+azure_tenant_id       = "00000000-0000-0000-0000-000000000000"  # Azure tenant ID
+
+# Azure Resources
+azure_resource_group   = "rg-packer-temp"
+azure_location         = "eastus"
+
+# VM Configuration
+vm_size = "Standard_D4s_v3"  # 4 vCPU, 16 GB RAM
+
+# Base Image
+image_publisher = "MicrosoftWindowsDesktop"  # Publisher
+image_offer     = "Windows-11"                # Offer
+image_sku       = "win11-22h2-ent"            # SKU
+
+# Gallery Configuration
+build_resource_group_name = "rg-sharedimages-prod"
+gallery_name              = "sig_customwindows_prod"
+gallery_image_name        = "windows-11-enterprise"
+image_version             = "1.0.0"
+
+# Tags
+tags = {
+  "Environment" = "Production"
+  "ManagedBy"   = "Packer"
+  "Purpose"     = "CustomImageBuild"
+  "Owner"       = "Your-Team"
+  "CostCenter"  = "IT"
+}

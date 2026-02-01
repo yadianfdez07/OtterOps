@@ -1,0 +1,250 @@
+# Azure DevOps Pipeline - Windows Image Build with Packer
+# This pipeline builds a Windows 11 Enterprise image with Notepad++
+# and captures it to the Azure Compute Gallery
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - src/cicd/packer/**
+      - src/infrastructure/**
+    exclude:
+      - README.md
+      - CONTRIBUTING.md
+
+pr:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - src/cicd/packer/**
+
+pool:
+  vmImage: 'windows-2022'
+
+variables:
+  PACKER_VERSION: '1.9.4'
+  AZURE_LOCATION: 'eastus'
+  IMAGE_VERSION: '1.0.0'
+  GALLERY_NAME: 'sig_customwindows_prod'
+  GALLERY_IMAGE_NAME: 'windows-11-enterprise'
+
+stages:
+  # Stage 1: Validate
+  - stage: Validate
+    displayName: 'Validate Packer Template'
+    jobs:
+      - job: ValidatePackerTemplate
+        displayName: 'Validate Packer Configuration'
+        steps:
+          # Checkout code
+          - checkout: self
+            displayName: 'Checkout Repository'
+            fetchDepth: 1
+
+          # Install Packer
+          - task: GoTool@0
+            displayName: 'Ensure Go is Available'
+            inputs:
+              version: '1.20.x'
+
+          - script: |
+              choco install packer --version=$(PACKER_VERSION) -y
+              packer --version
+            displayName: 'Install Packer'
+            continueOnError: false
+
+          # Format Check
+          - script: |
+              cd src/cicd/packer
+              packer fmt -check -recursive .
+            displayName: 'Check Packer Format'
+            continueOnError: false
+
+          # Validate Template
+          - script: |
+              cd src/cicd/packer
+              packer validate ^
+                -var="azure_subscription_id=$(AZURE_SUBSCRIPTION_ID)" ^
+                -var="azure_client_id=$(AZURE_CLIENT_ID)" ^
+                -var="azure_client_secret=$(AZURE_CLIENT_SECRET)" ^
+                -var="azure_tenant_id=$(AZURE_TENANT_ID)" ^
+                -var="azure_location=$(AZURE_LOCATION)" ^
+                -var="image_version=$(IMAGE_VERSION)" ^
+                -var="gallery_name=$(GALLERY_NAME)" ^
+                -var="gallery_image_name=$(GALLERY_IMAGE_NAME)" ^
+                .
+            displayName: 'Validate Packer Template'
+            continueOnError: false
+            env:
+              AZURE_SUBSCRIPTION_ID: $(AZURE_SUBSCRIPTION_ID)
+              AZURE_CLIENT_ID: $(AZURE_CLIENT_ID)
+              AZURE_CLIENT_SECRET: $(AZURE_CLIENT_SECRET)
+              AZURE_TENANT_ID: $(AZURE_TENANT_ID)
+
+          # Bicep Validation
+          - script: |
+              cd src/infrastructure
+              az bicep build --file main.bicep
+            displayName: 'Validate Bicep Template'
+            continueOnError: false
+
+  # Stage 2: Build (only on main branch)
+  - stage: Build
+    displayName: 'Build Windows Image with Packer'
+    dependsOn: Validate
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - job: BuildImage
+        displayName: 'Build Custom Windows 11 Image'
+        timeoutInMinutes: 180  # 3 hours timeout for image build
+        steps:
+          # Checkout code
+          - checkout: self
+            displayName: 'Checkout Repository'
+            fetchDepth: 1
+
+          # Install Packer
+          - script: |
+              choco install packer --version=$(PACKER_VERSION) -y
+              packer --version
+            displayName: 'Install Packer'
+            continueOnError: false
+
+          # Azure Login
+          - task: AzureCLI@2
+            displayName: 'Azure Login'
+            inputs:
+              azureSubscription: '$(AZURE_SERVICE_CONNECTION)'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                echo "Azure CLI authentication successful"
+                az account show
+
+          # Initialize Packer
+          - script: |
+              cd src/cicd/packer
+              packer init .
+            displayName: 'Initialize Packer'
+            continueOnError: false
+            env:
+              PACKER_LOG: 'INFO'
+
+          # Build Image with Packer
+          - script: |
+              cd src/cicd/packer
+              packer build ^
+                -var="azure_subscription_id=$(AZURE_SUBSCRIPTION_ID)" ^
+                -var="azure_client_id=$(AZURE_CLIENT_ID)" ^
+                -var="azure_client_secret=$(AZURE_CLIENT_SECRET)" ^
+                -var="azure_tenant_id=$(AZURE_TENANT_ID)" ^
+                -var="azure_location=$(AZURE_LOCATION)" ^
+                -var="image_version=$(IMAGE_VERSION)" ^
+                -var="gallery_name=$(GALLERY_NAME)" ^
+                -var="gallery_image_name=$(GALLERY_IMAGE_NAME)" ^
+                -on-error=ask ^
+                .
+            displayName: 'Build Image with Packer'
+            continueOnError: false
+            env:
+              PACKER_LOG: 'INFO'
+              AZURE_SUBSCRIPTION_ID: $(AZURE_SUBSCRIPTION_ID)
+              AZURE_CLIENT_ID: $(AZURE_CLIENT_ID)
+              AZURE_CLIENT_SECRET: $(AZURE_CLIENT_SECRET)
+              AZURE_TENANT_ID: $(AZURE_TENANT_ID)
+
+          # Publish Build Manifest
+          - task: PublishBuildArtifacts@1
+            displayName: 'Publish Build Artifacts'
+            inputs:
+              pathToPublish: '$(Build.SourcesDirectory)/src/cicd/packer/manifest.json'
+              artifactName: 'packer-manifest'
+            condition: succeededOrFailed()
+
+  # Stage 3: Verify
+  - stage: Verify
+    displayName: 'Verify Image in Gallery'
+    dependsOn: Build
+    condition: succeeded()
+    jobs:
+      - job: VerifyImage
+        displayName: 'Verify Image Created in Gallery'
+        steps:
+          # Checkout code
+          - checkout: self
+            displayName: 'Checkout Repository'
+            fetchDepth: 1
+
+          # Azure Login
+          - task: AzureCLI@2
+            displayName: 'Azure Login'
+            inputs:
+              azureSubscription: '$(AZURE_SERVICE_CONNECTION)'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                echo "Verifying image in Azure Compute Gallery..."
+                
+                # Get resource group name (from parameters or default)
+                RG_NAME="rg-sharedimages-prod"
+                GALLERY_NAME="$(GALLERY_NAME)"
+                IMAGE_NAME="$(GALLERY_IMAGE_NAME)"
+                IMAGE_VERSION="$(IMAGE_VERSION)"
+                
+                # Check if gallery exists
+                echo "Checking gallery: $GALLERY_NAME in resource group: $RG_NAME"
+                az sig show --resource-group $RG_NAME --gallery-name $GALLERY_NAME
+                
+                # Check if image definition exists
+                echo "Checking image definition: $IMAGE_NAME"
+                az sig image-definition show \
+                  --resource-group $RG_NAME \
+                  --gallery-name $GALLERY_NAME \
+                  --gallery-image-definition $IMAGE_NAME
+                
+                # List all versions
+                echo "Listing image versions:"
+                az sig image-version list \
+                  --resource-group $RG_NAME \
+                  --gallery-name $GALLERY_NAME \
+                  --gallery-image-definition $IMAGE_NAME \
+                  --query "[].name" \
+                  -o table
+                
+                # Get specific version details
+                echo "Checking specific image version: $IMAGE_VERSION"
+                az sig image-version show \
+                  --resource-group $RG_NAME \
+                  --gallery-name $GALLERY_NAME \
+                  --gallery-image-definition $IMAGE_NAME \
+                  --gallery-image-version $IMAGE_VERSION
+
+  # Stage 4: Report
+  - stage: Report
+    displayName: 'Generate Build Report'
+    dependsOn: Verify
+    condition: succeeded()
+    jobs:
+      - job: GenerateReport
+        displayName: 'Create Build Summary'
+        steps:
+          - task: PublishBuildArtifacts@1
+            displayName: 'Publish Pipeline Logs'
+            inputs:
+              pathToPublish: '$(Build.ArtifactStagingDirectory)'
+              artifactName: 'pipeline-logs'
+            condition: always()
+
+          - script: |
+              echo "##[section]BUILD SUMMARY"
+              echo "Image Version: $(IMAGE_VERSION)"
+              echo "Gallery: $(GALLERY_NAME)"
+              echo "Image Definition: $(GALLERY_IMAGE_NAME)"
+              echo "Location: $(AZURE_LOCATION)"
+              echo "Build Agent: $(Agent.OS) - $(Agent.OSVersion)"
+              echo "Timestamp: %DATE% %TIME%"
+            displayName: 'Display Build Information'
